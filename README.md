@@ -48,6 +48,21 @@ python server.py
 > 현재 이 PC에는 Node·Python 이 설치돼 있지 않아 방법 A 로 동작합니다.
 > KOPIS 자동수집이 필요하면 [Node](https://nodejs.org) 또는 Python 을 설치한 뒤 방법 B 를 쓰세요.
 
+### 방법 C — Vercel 배포 (로컬 서버 없이 URL 로 사용)
+
+`server.js` 의 프록시 기능이 `api/` 폴더의 Vercel 서버리스 함수(`api/kopis.js` 등)로 이식돼 있어,
+Vercel 에 올리면 **로컬 서버·작업 스케줄러 없이** 어느 기기에서든 URL 로 접속해 KOPIS 자동수집까지 쓸 수 있습니다.
+
+1. GitHub 저장소를 Vercel 에 연결: <https://vercel.com/new> → **Import** `gugak-dashboard` → **Deploy**
+   (프레임워크 자동 감지 없음 / 빌드 설정 불필요 — 정적 파일 + `api/*` 함수로 자동 배포)
+2. 배포된 URL(`https://<프로젝트>.vercel.app`) 접속 → 설정에서 KOPIS / YouTube / Gemini 키 입력
+3. 이후 `git push` 하면 자동 재배포
+
+메모:
+- 배포 URL 은 누구나 열 수 있지만(`noindex` 처리됨), **데이터·API 키는 각 브라우저의 localStorage 에만** 저장돼 다른 사람에게 노출되지 않습니다.
+- 데이터는 기기·브라우저 간 동기화되지 않습니다 → 설정 › 내보내기 / 가져오기 로 이동.
+- PRD 문서·`server.*`·`start.bat` 은 `.vercelignore` 로 공개 배포에서 제외됩니다(저장소에는 유지).
+
 ## API 키 발급
 
 ### KOPIS(공연예술통합전산망) 서비스키 — 공연 캘린더 자동수집

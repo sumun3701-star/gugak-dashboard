@@ -1,0 +1,7 @@
+# Vercel 배포에서 제외 (GitHub 저장소에는 남지만 공개 URL로는 안 나감)
+*.md
+server.js
+server.py
+start.bat
+__pycache__/
+icon.ico
