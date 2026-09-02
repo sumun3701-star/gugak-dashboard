@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# Windows / macOS 시스템 파일
+desktop.ini
+Thumbs.db
+.DS_Store
+
+# 에디터
+.vscode/
+.idea/
+*.swp

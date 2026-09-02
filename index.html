@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>국악 대시보드</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img class="brand-mark" src="favicon.png" alt="" width="30" height="30" />
+      <div>
+        <h1>국악 대시보드</h1>
+        <p class="brand-sub">공연 · 방송 · 작업물을 한 화면에서</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab is-active" data-tab="home">홈</button>
+      <button class="tab" data-tab="youtube">국악방송 유튜브 <span class="badge" id="ytBadge" hidden></span></button>
+      <button class="tab" data-tab="todos">투두 게시판</button>
+      <button class="tab" data-tab="board">작업물 게시판</button>
+      <button class="tab" data-tab="scraps">스크랩</button>
+      <button class="tab" data-tab="notes">아이디어 보드</button>
+      <button class="tab" data-tab="settings">설정</button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+    <!-- HOME : 캘린더 + 주간 일정 -->
+    <section class="view is-active" id="view-home">
+      <div class="home-grid">
+        <div class="panel calendar-panel">
+          <div class="panel-head">
+            <div class="cal-nav">
+              <button class="icon-btn" id="calPrev" aria-label="이전 달">‹</button>
+              <h2 id="calTitle">—</h2>
+              <button class="icon-btn" id="calNext" aria-label="다음 달">›</button>
+              <button class="ghost-btn" id="calToday">오늘</button>
+            </div>
+            <button class="primary-btn" id="calRefresh">공연정보 새로고침</button>
+          </div>
+
+          <div class="cal-pinned" id="calPinned" hidden></div>
+
+          <div class="cal-filters">
+            <div class="filter-group">
+              <span class="filter-label">공연장</span>
+              <label><input type="checkbox" class="venue-filter" value="국립국악원" checked /> 국립국악원</label>
+              <label><input type="checkbox" class="venue-filter" value="남산국악당" checked /> 남산국악당</label>
+              <label><input type="checkbox" class="venue-filter" value="국립극장" checked /> 국립극장</label>
+              <label><input type="checkbox" class="venue-filter" value="김희수아트센터" checked /> 김희수아트센터</label>
+              <label><input type="checkbox" class="venue-filter" value="__discovered__" checked /> 그 외 국악 공연</label>
+              <label><input type="checkbox" class="venue-filter" value="__personal__" checked /> 개인 일정</label>
+            </div>
+            <div class="filter-group">
+              <span class="filter-label">지역</span>
+              <select id="regionSelect">
+                <option value="metro">수도권 (서울·경기·인천)</option>
+                <option value="all">전국</option>
+              </select>
+              <label class="only-interested"><input type="checkbox" id="onlyInterested" /> 관심 공연만</label>
+            </div>
+          </div>
+
+          <div class="cal-status" id="calStatus"></div>
+
+          <div class="cal-weekdays">
+            <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span><span class="sun">일</span>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+
+          <div class="cal-legend">
+            <span><i class="dot" style="background:var(--concert)"></i> 공연 · 공연 관람</span>
+            <span><i class="dot" style="background:var(--pe-work)"></i> 업무</span>
+            <span><i class="dot" style="background:var(--pe-personal)"></i> 개인</span>
+            <span><i class="star">★</i> 관심 표시</span>
+          </div>
+        </div>
+
+        <div class="panel weekly-panel">
+          <div class="panel-head">
+            <div class="cal-nav">
+              <button class="icon-btn" id="weekPrev" aria-label="이전 주">‹</button>
+              <h2 id="weekTitle">이번 주</h2>
+              <button class="icon-btn" id="weekNext" aria-label="다음 주">›</button>
+              <button class="ghost-btn" id="weekThis">이번 주</button>
+            </div>
+          </div>
+
+          <form class="week-add" id="weekAddForm">
+            <input type="text" id="weekAddInput" placeholder="이번 주 할일 추가" maxlength="200" />
+            <button class="primary-btn" type="submit">추가</button>
+          </form>
+
+          <div class="week-section">
+            <h3>캘린더 연동 <small>(개인 일정 · 관심 공연)</small></h3>
+            <ul class="todo-list" id="weekSyncedList"></ul>
+          </div>
+          <div class="week-section">
+            <h3>직접 추가한 할일</h3>
+            <ul class="todo-list" id="weekTodoList"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- YOUTUBE -->
+    <section class="view" id="view-youtube">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>국악방송라디오 최신 업로드</h2>
+          <div class="head-actions">
+            <button class="ghost-btn" id="ytMarkAll">모두 확인함</button>
+            <button class="primary-btn" id="ytRefresh">새로고침</button>
+          </div>
+        </div>
+        <p class="muted" id="ytStatus"></p>
+        <div class="yt-grid" id="ytGrid"></div>
+      </div>
+    </section>
+
+    <!-- TODO BOARD -->
+    <section class="view" id="view-todos">
+      <div class="panel">
+        <div class="panel-head"><h2>투두 게시판</h2></div>
+        <form class="board-form" id="todoForm">
+          <div class="board-form-row">
+            <select id="todoStatus" title="상태">
+              <option value="todo">할 일</option>
+              <option value="doing">진행 중</option>
+            </select>
+          </div>
+          <input type="text" id="todoTitle" placeholder="할 일 제목" maxlength="150" required />
+          <textarea id="todoNote" placeholder="메모 (선택)" rows="2"></textarea>
+          <input type="text" id="todoTags" placeholder="태그 (쉼표로 구분, 선택)" />
+          <button class="primary-btn" type="submit">추가</button>
+        </form>
+        <div class="kanban kanban-2" id="todoKanban"></div>
+      </div>
+    </section>
+
+    <!-- WORK ARCHIVE BOARD -->
+    <section class="view" id="view-board">
+      <div class="panel">
+        <div class="panel-head"><h2>작업물 게시판 <small class="head-sub">완료된 작업물 보관</small></h2></div>
+        <div class="archive-layout">
+          <aside class="cat-tree" id="boardCatTree"></aside>
+          <div class="archive-main">
+            <form class="board-form" id="boardForm">
+              <div class="board-form-row">
+                <label class="seg">
+                  <input type="radio" name="boardType" value="file" checked /> 파일
+                </label>
+                <label class="seg">
+                  <input type="radio" name="boardType" value="link" /> 링크
+                </label>
+              </div>
+              <input type="text" id="boardTitle" placeholder="제목" maxlength="150" required />
+              <input type="url" id="boardUrl" placeholder="URL (노션 / 구글 시트 등)" hidden />
+              <input type="file" id="boardFile" />
+              <div class="board-form-row">
+                <select id="boardCat" title="카테고리"></select>
+                <input type="text" id="boardTags" placeholder="태그 (쉼표로 구분, 선택)" />
+              </div>
+              <textarea id="boardDesc" placeholder="설명 (선택)" rows="2"></textarea>
+              <button class="primary-btn" type="submit">등록</button>
+            </form>
+            <div class="board-list" id="boardList"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCRAPS -->
+    <section class="view" id="view-scraps">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>스크랩</h2>
+          <div class="head-actions">
+            <button class="ghost-btn" id="scrapCatAdd">+ 카테고리</button>
+          </div>
+        </div>
+        <form class="scrap-form" id="scrapForm">
+          <div class="scrap-url-row">
+            <input type="url" id="scrapUrl" placeholder="기사 / 블로그 글 URL" required />
+            <button type="button" class="ghost-btn" id="scrapFetch">정보 가져오기</button>
+          </div>
+          <input type="text" id="scrapTitle" placeholder="제목" required />
+          <textarea id="scrapNote" rows="2" placeholder="메모 / 발췌 (선택)"></textarea>
+          <div class="scrap-form-row">
+            <select id="scrapCat" title="카테고리"></select>
+            <input type="text" id="scrapTags" placeholder="태그 (쉼표로 구분, 선택)" />
+          </div>
+          <button class="primary-btn" type="submit">스크랩 추가</button>
+        </form>
+        <div class="scrap-cats" id="scrapCats"></div>
+        <p class="muted scrap-cat-hint">카테고리 칩을 두 번 클릭하면 이름 변경·삭제할 수 있습니다.</p>
+        <div class="scrap-toolbar">
+          <input type="search" id="scrapSearch" placeholder="검색 (제목·메모·출처)" />
+          <select id="scrapReadFilter">
+            <option value="all">전체</option>
+            <option value="unread">안 읽음</option>
+            <option value="read">읽음</option>
+          </select>
+        </div>
+        <div class="scrap-tagfilter" id="scrapTagFilter"></div>
+        <div class="scrap-list" id="scrapList"></div>
+      </div>
+    </section>
+
+    <!-- IDEA BOARD -->
+    <section class="view" id="view-notes">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>아이디어 보드</h2>
+          <div class="head-actions">
+            <button class="primary-btn" id="noteAdd">+ 메모 추가</button>
+          </div>
+        </div>
+        <p class="muted board-hint">상단 손잡이(⋮⋮)를 끌어 옮기고, 아래 색 점으로 색을 바꿉니다. 좁은 화면에서는 목록으로 표시됩니다.</p>
+        <div class="idea-board" id="ideaBoard"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="panel">
+        <div class="panel-head"><h2>설정</h2></div>
+
+        <div class="settings-block">
+          <h3>외부 데이터 연동</h3>
+          <label class="field">
+            <span>KOPIS 오픈API 서비스키</span>
+            <input type="text" id="setKopisKey" placeholder="공연예술통합전산망 인증키" autocomplete="off" />
+            <small>kopis.or.kr → 오픈API 신청. 없으면 캘린더는 수동 입력·샘플로 동작합니다.</small>
+          </label>
+          <label class="field">
+            <span>YouTube Data API v3 키 (선택)</span>
+            <input type="text" id="setYoutubeKey" placeholder="AIza..." autocomplete="off" />
+            <small>없으면 로컬 서버(server.js) 실행 시 RSS로 대체 수집합니다.</small>
+          </label>
+          <label class="field">
+            <span>프록시 주소</span>
+            <input type="text" id="setProxyBase" placeholder="비워두면 현재 주소(same-origin) 사용" autocomplete="off" />
+            <small>node server.js 로 실행 중이면 비워두세요. 파일로 직접 열면 KOPIS 자동수집은 불가합니다.</small>
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>KOPIS 국악 장르코드</span>
+              <input type="text" id="setGenreCode" />
+              <small>기본값 CCCC (한국음악/국악). 결과가 이상하면 KOPIS 문서로 재확인.</small>
+            </label>
+            <label class="field">
+              <span>조회 기간(오늘부터, 일)</span>
+              <input type="number" id="setRangeDays" min="7" max="365" />
+            </label>
+          </div>
+          <label class="field">
+            <span>지정 공연장 키워드 (쉼표로 구분)</span>
+            <input type="text" id="setDesignated" />
+            <small>공연시설명에 이 키워드가 포함되면 "지정 공연장"으로 분류됩니다.</small>
+          </label>
+        </div>
+
+        <div class="settings-block">
+          <h3>수동 공연 등록 <small>(자동 수집이 안 되는 예외용)</small></h3>
+          <form class="manual-form" id="manualForm">
+            <input type="text" id="manName" placeholder="공연명" required />
+            <input type="text" id="manVenue" placeholder="공연장" required />
+            <div class="field-row">
+              <input type="date" id="manFrom" required />
+              <input type="date" id="manTo" />
+            </div>
+            <input type="url" id="manUrl" placeholder="상세/예매 URL" />
+            <select id="manGroup">
+              <option value="designated">지정 공연장</option>
+              <option value="discovered">그 외 국악 공연</option>
+            </select>
+            <button class="primary-btn" type="submit">공연 추가</button>
+          </form>
+          <ul class="manual-list" id="manualList"></ul>
+        </div>
+
+        <div class="settings-block">
+          <h3>숨긴 공연 <small>(캘린더에서 삭제한 자동수집·샘플 공연)</small></h3>
+          <button class="collapse-toggle" id="hiddenToggle" type="button" aria-expanded="false">
+            <span class="collapse-caret">▸</span> <span id="hiddenSummary">숨긴 공연 0건</span>
+          </button>
+          <div id="hiddenBox" hidden>
+            <ul class="manual-list" id="hiddenList"></ul>
+            <button class="ghost-btn" id="hiddenRestoreAll" type="button">모두 복원</button>
+          </div>
+          <p class="muted">숨긴 지 2개월이 지나면 자동으로 삭제됩니다.</p>
+        </div>
+
+        <div class="settings-block">
+          <h3>작업물 게시판 파일</h3>
+          <label class="field" style="max-width: 300px;">
+            <span>업로드 파일 1개 최대 크기 (MB)</span>
+            <input type="number" id="setFileLimit" min="1" max="500" />
+            <small>파일은 이 브라우저의 IndexedDB에 저장됩니다(대용량 가능). 전체 용량은 브라우저·디스크 여유에 따라 달라집니다.</small>
+          </label>
+          <p class="muted" id="fileUsage"></p>
+        </div>
+
+        <div class="settings-block">
+          <h3>데이터</h3>
+          <div class="head-actions">
+            <button class="ghost-btn" id="dataExport">내보내기 (JSON)</button>
+            <button class="ghost-btn" id="dataImportBtn">가져오기</button>
+            <input type="file" id="dataImport" accept="application/json" hidden />
+            <button class="danger-btn" id="dataClear">전체 초기화</button>
+          </div>
+          <p class="muted">설정·일정·할일·게시판·스크랩·노트는 이 브라우저에 저장됩니다. 내보내기에는 게시판 첨부파일도 함께 포함됩니다(파일이 크면 JSON도 커집니다).</p>
+        </div>
+
+        <div class="settings-actions">
+          <button class="primary-btn" id="setSave">설정 저장</button>
+          <span class="save-hint" id="setSaveHint"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Day detail modal -->
+  <div class="modal" id="dayModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-body">
+      <div class="modal-head">
+        <h3 id="dayModalTitle">날짜</h3>
+        <button class="icon-btn" data-close aria-label="닫기">×</button>
+      </div>
+      <div class="modal-content" id="dayModalContent"></div>
+      <form class="day-add" id="dayAddForm">
+        <h4>개인 일정 추가</h4>
+        <input type="text" id="dayAddTitle" placeholder="제목 (예: 리허설)" required />
+        <div class="pe-kind" id="dayAddKind">
+          <label class="seg pe-work"><input type="radio" name="peKind" value="work" checked /> 업무</label>
+          <label class="seg pe-watch"><input type="radio" name="peKind" value="watch" /> 공연 관람</label>
+          <label class="seg pe-personal"><input type="radio" name="peKind" value="personal" /> 개인</label>
+        </div>
+        <div class="field-row">
+          <input type="time" id="dayAddTime" />
+          <input type="text" id="dayAddMemo" placeholder="메모 (선택)" />
+        </div>
+        <button class="primary-btn" type="submit">추가</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/filedb.js"></script>
+  <script src="js/kopis.js"></script>
+  <script src="js/youtube.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/weekly.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/todos.js"></script>
+  <script src="js/scraps.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
