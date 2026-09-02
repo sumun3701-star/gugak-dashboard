@@ -5,12 +5,16 @@ App.settings = (function () {
   var DEFAULTS = {
     kopisKey: '',
     youtubeKey: '',
+    geminiKey: '',
+    geminiModel: 'gemini-2.5-flash',
     proxyBase: '',
     genreCode: 'CCCC',          // KOPIS 한국음악(국악)
     rangeDays: 90,
     maxPages: 10,
     designatedVenues: ['국립국악원', '남산국악당', '국립극장', '김희수아트센터'],
-    fileLimitMB: 50
+    fileLimitMB: 50,
+    revealPwHash: '',   // 👁 표시 비밀번호 (PBKDF2-SHA256 해시, base64)
+    revealPwSalt: ''
   };
 
   var state = load();
@@ -25,6 +29,33 @@ App.settings = (function () {
   }
 
   function get() { return state; }
+
+  /* ---------- 표시 비밀번호 (👁 잠금) ---------- */
+  var crypto_ok = !!(window.crypto && window.crypto.subtle);
+  function b64(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))); }
+  function unb64(s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); }
+  function deriveHash(pw, saltBytes) {
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits'])
+      .then(function (k) {
+        return crypto.subtle.deriveBits(
+          { name: 'PBKDF2', salt: saltBytes, iterations: 120000, hash: 'SHA-256' }, k, 256);
+      });
+  }
+  function setRevealPassword(pw) {
+    if (!crypto_ok) return Promise.reject(new Error('이 환경에서는 비밀번호 기능을 쓸 수 없습니다 (localhost 로 접속하세요)'));
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    return deriveHash(pw, salt).then(function (bits) {
+      save({ revealPwSalt: b64(salt), revealPwHash: b64(bits) });
+    });
+  }
+  function clearRevealPassword() { save({ revealPwSalt: '', revealPwHash: '' }); }
+  function hasRevealPassword() { return !!state.revealPwHash; }
+  function checkRevealPassword(pw) {
+    if (!state.revealPwHash || !crypto_ok) return Promise.resolve(false);
+    return deriveHash(pw, unb64(state.revealPwSalt)).then(function (bits) {
+      return b64(bits) === state.revealPwHash;
+    });
+  }
 
   function save(patch) {
     Object.keys(patch || {}).forEach(function (k) {
@@ -41,7 +72,10 @@ App.settings = (function () {
     // 값 채우기
     $('setKopisKey').value = state.kopisKey;
     $('setYoutubeKey').value = state.youtubeKey;
+    $('setGeminiKey').value = state.geminiKey;
     $('setProxyBase').value = state.proxyBase;
+
+    initRevealLock($);
     $('setGenreCode').value = state.genreCode;
     $('setRangeDays').value = state.rangeDays;
     $('setDesignated').value = state.designatedVenues.join(', ');
@@ -52,6 +86,7 @@ App.settings = (function () {
       save({
         kopisKey: $('setKopisKey').value.trim(),
         youtubeKey: $('setYoutubeKey').value.trim(),
+        geminiKey: $('setGeminiKey').value.trim(),
         proxyBase: $('setProxyBase').value.trim(),
         genreCode: $('setGenreCode').value.trim() || 'CCCC',
         rangeDays: Math.min(365, Math.max(7, parseInt($('setRangeDays').value, 10) || 90)),
@@ -67,6 +102,80 @@ App.settings = (function () {
     initManual($);
     initHidden($);
     initDataTools($);
+  }
+
+  /* ---------- 👁 버튼: 표시 비밀번호로 잠금 ---------- */
+  function initRevealLock($) {
+    var stateLabel = $('revealPwState');
+    function refreshLabel() {
+      if (!stateLabel) return;
+      stateLabel.textContent = !crypto_ok
+        ? '⚠ 이 환경에서는 사용할 수 없습니다 (http://localhost 로 접속하세요).'
+        : hasRevealPassword()
+          ? '설정됨 — 위 키를 👁로 보려면 이 비밀번호가 필요합니다.'
+          : '미설정 — 설정해야 👁 버튼으로 키를 볼 수 있습니다.';
+    }
+    refreshLabel();
+
+    // 👁 토글 (data-for 있는 것만)
+    document.querySelectorAll('.secret-toggle[data-for]').forEach(function (b) {
+      var timer = null;
+      function mask(input) { input.type = 'password'; b.textContent = '👁'; if (timer) { clearTimeout(timer); timer = null; } }
+      b.addEventListener('click', function () {
+        var input = document.getElementById(b.dataset.for);
+        if (!input) return;
+        if (input.type === 'text') { mask(input); return; }
+        if (!input.value) { App.util.toast('입력된 키가 없습니다'); return; }
+        if (!hasRevealPassword()) {
+          App.util.toast('아래 "표시 비밀번호"를 먼저 설정하세요');
+          return;
+        }
+        var pw = window.prompt('표시 비밀번호');
+        if (pw == null) return;
+        checkRevealPassword(pw).then(function (ok) {
+          if (!ok) { App.util.toast('비밀번호가 틀렸습니다'); return; }
+          input.type = 'text';
+          b.textContent = '🙈';
+          timer = setTimeout(function () { mask(input); }, 20000); // 20초 후 자동 가림
+        });
+      });
+    });
+
+    // 표시 비밀번호 설정 / 변경 / 해제
+    var setBtn = $('setRevealPwSave');
+    if (setBtn) setBtn.addEventListener('click', function () {
+      if (!crypto_ok) { App.util.toast('http://localhost 로 접속해야 사용할 수 있습니다'); return; }
+      var field = $('setRevealPw');
+      var newPw = field.value;
+      if (hasRevealPassword()) {
+        var cur = window.prompt('현재 표시 비밀번호');
+        if (cur == null) return;
+        checkRevealPassword(cur).then(function (ok) {
+          if (!ok) { App.util.toast('현재 비밀번호가 틀렸습니다'); return; }
+          applyNew(newPw, field);
+        });
+      } else {
+        applyNew(newPw, field);
+      }
+    });
+
+    function applyNew(newPw, field) {
+      if (!newPw) {
+        if (hasRevealPassword() && confirm('표시 비밀번호를 해제할까요? (👁로 바로 볼 수 있게 됩니다)')) {
+          clearRevealPassword();
+          field.value = '';
+          refreshLabel();
+          App.util.toast('표시 비밀번호를 해제했습니다');
+        }
+        return;
+      }
+      if (newPw.length < 4) { App.util.toast('4자 이상으로 정하세요'); return; }
+      setRevealPassword(newPw).then(function () {
+        field.value = '';
+        refreshLabel();
+        App.util.toast('표시 비밀번호를 설정했습니다');
+      }).catch(function (e) { App.util.toast(e.message || String(e)); });
+    }
   }
 
   function showFileUsage() {

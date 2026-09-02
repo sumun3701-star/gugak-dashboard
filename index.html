@@ -147,9 +147,9 @@
     <section class="view" id="view-board">
       <div class="panel">
         <div class="panel-head"><h2>작업물 게시판 <small class="head-sub">완료된 작업물 보관</small></h2></div>
-        <div class="archive-layout">
+        <div class="cat-layout">
           <aside class="cat-tree" id="boardCatTree"></aside>
-          <div class="archive-main">
+          <div class="cat-main">
             <form class="board-form" id="boardForm">
               <div class="board-form-row">
                 <label class="seg">
@@ -178,37 +178,36 @@
     <!-- SCRAPS -->
     <section class="view" id="view-scraps">
       <div class="panel">
-        <div class="panel-head">
-          <h2>스크랩</h2>
-          <div class="head-actions">
-            <button class="ghost-btn" id="scrapCatAdd">+ 카테고리</button>
+        <div class="panel-head"><h2>스크랩</h2></div>
+        <div class="cat-layout">
+          <aside class="cat-tree" id="scrapCatTree"></aside>
+          <div class="cat-main">
+            <form class="scrap-form" id="scrapForm">
+              <div class="scrap-url-row">
+                <input type="url" id="scrapUrl" placeholder="기사 / 블로그 글 URL" required />
+                <button type="button" class="ghost-btn" id="scrapFetch">정보 가져오기</button>
+                <button type="button" class="primary-btn" id="scrapAI">✨ AI 정리</button>
+              </div>
+              <input type="text" id="scrapTitle" placeholder="제목" required />
+              <textarea id="scrapNote" rows="2" placeholder="메모 / 발췌 (선택)"></textarea>
+              <div class="scrap-form-row">
+                <select id="scrapCat" title="카테고리"></select>
+                <input type="text" id="scrapTags" placeholder="태그 (쉼표로 구분, 선택)" />
+              </div>
+              <button class="primary-btn" type="submit">스크랩 추가</button>
+            </form>
+            <div class="scrap-toolbar">
+              <input type="search" id="scrapSearch" placeholder="검색 (제목·메모·출처)" />
+              <select id="scrapReadFilter">
+                <option value="all">전체</option>
+                <option value="unread">안 읽음</option>
+                <option value="read">읽음</option>
+              </select>
+            </div>
+            <div class="scrap-tagfilter" id="scrapTagFilter"></div>
+            <div class="scrap-list" id="scrapList"></div>
           </div>
         </div>
-        <form class="scrap-form" id="scrapForm">
-          <div class="scrap-url-row">
-            <input type="url" id="scrapUrl" placeholder="기사 / 블로그 글 URL" required />
-            <button type="button" class="ghost-btn" id="scrapFetch">정보 가져오기</button>
-          </div>
-          <input type="text" id="scrapTitle" placeholder="제목" required />
-          <textarea id="scrapNote" rows="2" placeholder="메모 / 발췌 (선택)"></textarea>
-          <div class="scrap-form-row">
-            <select id="scrapCat" title="카테고리"></select>
-            <input type="text" id="scrapTags" placeholder="태그 (쉼표로 구분, 선택)" />
-          </div>
-          <button class="primary-btn" type="submit">스크랩 추가</button>
-        </form>
-        <div class="scrap-cats" id="scrapCats"></div>
-        <p class="muted scrap-cat-hint">카테고리 칩을 두 번 클릭하면 이름 변경·삭제할 수 있습니다.</p>
-        <div class="scrap-toolbar">
-          <input type="search" id="scrapSearch" placeholder="검색 (제목·메모·출처)" />
-          <select id="scrapReadFilter">
-            <option value="all">전체</option>
-            <option value="unread">안 읽음</option>
-            <option value="read">읽음</option>
-          </select>
-        </div>
-        <div class="scrap-tagfilter" id="scrapTagFilter"></div>
-        <div class="scrap-list" id="scrapList"></div>
       </div>
     </section>
 
@@ -235,13 +234,35 @@
           <h3>외부 데이터 연동</h3>
           <label class="field">
             <span>KOPIS 오픈API 서비스키</span>
-            <input type="text" id="setKopisKey" placeholder="공연예술통합전산망 인증키" autocomplete="off" />
+            <span class="secret-row">
+              <input type="password" id="setKopisKey" placeholder="공연예술통합전산망 인증키" autocomplete="off" />
+              <button type="button" class="secret-toggle" data-for="setKopisKey" aria-label="표시">👁</button>
+            </span>
             <small>kopis.or.kr → 오픈API 신청. 없으면 캘린더는 수동 입력·샘플로 동작합니다.</small>
           </label>
           <label class="field">
             <span>YouTube Data API v3 키 (선택)</span>
-            <input type="text" id="setYoutubeKey" placeholder="AIza..." autocomplete="off" />
+            <span class="secret-row">
+              <input type="password" id="setYoutubeKey" placeholder="AIza..." autocomplete="off" />
+              <button type="button" class="secret-toggle" data-for="setYoutubeKey" aria-label="표시">👁</button>
+            </span>
             <small>없으면 로컬 서버(server.js) 실행 시 RSS로 대체 수집합니다.</small>
+          </label>
+          <label class="field">
+            <span>Gemini API 키 (선택 · AI 기능)</span>
+            <span class="secret-row">
+              <input type="password" id="setGeminiKey" placeholder="AIza..." autocomplete="off" />
+              <button type="button" class="secret-toggle" data-for="setGeminiKey" aria-label="표시">👁</button>
+            </span>
+            <small>스크랩 "✨ AI 정리"(제목·요약·태그·카테고리 자동)에 사용. aistudio.google.com 에서 무료 발급. 이 키는 소스코드에 저장되지 않고 이 브라우저에만 보관됩니다.</small>
+          </label>
+          <label class="field">
+            <span>표시 비밀번호 <small>(위 API 키를 👁로 볼 때 요구)</small></span>
+            <span class="secret-row">
+              <input type="password" id="setRevealPw" placeholder="새 비밀번호 (비우고 '설정' 시 해제)" autocomplete="new-password" />
+              <button type="button" class="ghost-btn" id="setRevealPwSave">설정</button>
+            </span>
+            <small id="revealPwState"></small>
           </label>
           <label class="field">
             <span>프록시 주소</span>
@@ -358,6 +379,8 @@
   <script src="js/store.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/filedb.js"></script>
+  <script src="js/cattree.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/kopis.js"></script>
   <script src="js/youtube.js"></script>
   <script src="js/calendar.js"></script>

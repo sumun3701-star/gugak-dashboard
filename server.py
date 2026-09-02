@@ -103,7 +103,43 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/fetch-meta":
             return self._fetch_meta(q.get("url", [""])[0])
 
+        if parsed.path == "/api/fetch-text":
+            return self._fetch_text(q.get("url", [""])[0])
+
         return self._static(parsed.path)
+
+    def _fetch_text(self, target):
+        if not re.match(r"^https?://", target or "", re.I):
+            self._text(400, "bad url")
+            return
+        try:
+            req = urllib.request.Request(
+                target, headers={"User-Agent": "Mozilla/5.0 (compatible; gugak-dashboard/1.0)"}
+            )
+            with urllib.request.urlopen(req, timeout=12) as r:
+                charset = r.headers.get_content_charset() or "utf-8"
+                raw = r.read(800000)
+            html = raw.decode(charset, "replace")
+        except Exception as e:  # noqa
+            self._text(502, "fetch failed: " + str(e))
+            return
+        html = re.sub(r"(?is)<script.*?</script>", " ", html)
+        html = re.sub(r"(?is)<style.*?</style>", " ", html)
+        html = re.sub(r"(?is)<noscript.*?</noscript>", " ", html)
+        html = re.sub(r"(?s)<!--.*?-->", " ", html)
+        html = re.sub(r"(?i)</(p|div|li|h[1-6]|br|tr|section|article)>", "\n", html)
+        html = re.sub(r"<[^>]+>", " ", html)
+        text = _unescape(html)
+        text = re.sub(r"[ \t\f\v]+", " ", text)
+        text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text).strip()[:14000]
+        self._text(200, text)
+
+    def _text(self, code, body):
+        self.send_response(code)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body.encode("utf-8"))
 
     def _fetch_meta(self, target):
         if not re.match(r"^https?://", target or "", re.I):

@@ -1,20 +1,14 @@
-/* scraps.js — 기사/블로그 스크랩 (네이버 블로그식 카테고리 분류, 전역 App.scraps) */
+/* scraps.js — 기사/블로그 스크랩 (전역 App.scraps)
+   2단계 카테고리는 App.makeCatTree(js/cattree.js) 공용 모듈 사용. */
 window.App = window.App || {};
 
 App.scraps = (function () {
   var U = App.util;
-  var NONE = '__none__'; // 미분류
-  var filter = { q: '', read: 'all', tag: '', cat: '' }; // cat '' = 전체(카테고리별 그룹 보기)
+  var CT = null;
+  var filter = { q: '', read: 'all', tag: '' }; // 카테고리 필터는 CT.filter
 
   function getScraps() { return App.store.get('scraps', []); }
   function setScraps(list) { App.store.set('scraps', list); }
-  function getCats() { return App.store.get('scrapCats', []); }
-  function setCats(list) { App.store.set('scrapCats', list); }
-  function catName(id) {
-    if (!id) return '미분류';
-    var c = getCats().find(function (x) { return x.id === id; });
-    return c ? c.name : '미분류';
-  }
 
   function domain(url) {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
@@ -29,12 +23,29 @@ App.scraps = (function () {
   }
 
   function init() {
+    CT = App.makeCatTree({
+      catsKey: 'scrapCats', openKey: 'scrapCatOpen',
+      treeId: 'scrapCatTree', formSelectId: 'scrapCat',
+      itemNoun: '스크랩',
+      countIn: function (catId) {
+        return getScraps().filter(function (s) { return (s.catId || '') === catId; }).length;
+      },
+      totalCount: function () { return getScraps().length; },
+      onSelect: render,
+      onCatsChanged: render,
+      onCategoryDeleted: function (id) {
+        var list = getScraps();
+        list.forEach(function (s) { if (s.catId === id) s.catId = ''; });
+        setScraps(list);
+      }
+    });
+
     var form = document.getElementById('scrapForm');
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var url = normUrl(document.getElementById('scrapUrl').value);
       var title = document.getElementById('scrapTitle').value.trim();
-      var catVal = document.getElementById('scrapCat').value;
+      var catId = document.getElementById('scrapCat').value || '';
       var s = {
         id: 'sc:' + U.uid(),
         url: url,
@@ -42,7 +53,7 @@ App.scraps = (function () {
         source: domain(url),
         note: document.getElementById('scrapNote').value.trim(),
         tags: parseTags(document.getElementById('scrapTags').value),
-        catId: catVal === NONE ? '' : catVal,
+        catId: catId,
         read: false,
         createdAt: Date.now(), updatedAt: Date.now()
       };
@@ -50,14 +61,12 @@ App.scraps = (function () {
       list.push(s);
       setScraps(list);
       form.reset();
-      renderCatSelect();
       render();
-      U.toast('스크랩에 추가했습니다' + (s.catId ? ' — ' + catName(s.catId) : ''));
+      U.toast('스크랩에 추가했습니다' + (s.catId ? ' — ' + CT.name(s.catId) : ''));
     });
 
     document.getElementById('scrapFetch').addEventListener('click', fetchMeta);
-    document.getElementById('scrapCatAdd').addEventListener('click', addCategory);
-
+    document.getElementById('scrapAI').addEventListener('click', aiOrganize);
     document.getElementById('scrapSearch').addEventListener('input', U.debounce(function (e) {
       filter.q = e.target.value.trim().toLowerCase();
       render();
@@ -67,85 +76,7 @@ App.scraps = (function () {
       render();
     });
 
-    renderCatSelect();
     render();
-  }
-
-  /* ---------- 카테고리 관리 ---------- */
-  function addCategory() {
-    var name = prompt('새 카테고리 이름');
-    if (name == null) return;
-    name = name.trim();
-    if (!name) return;
-    var cats = getCats();
-    if (cats.some(function (c) { return c.name === name; })) { U.toast('같은 이름의 카테고리가 있습니다'); return; }
-    cats.push({ id: 'cat:' + U.uid(), name: name });
-    setCats(cats);
-    filter.cat = cats[cats.length - 1].id;
-    renderCatSelect();
-    render();
-  }
-
-  function renameOrDeleteCategory(id) {
-    var cats = getCats();
-    var c = cats.find(function (x) { return x.id === id; });
-    if (!c) return;
-    var nv = prompt('카테고리 이름을 바꾸려면 새 이름을 입력하세요.\n비우고 확인하면 이 카테고리를 삭제합니다. (안의 스크랩은 미분류로 이동)', c.name);
-    if (nv == null) return;
-    nv = nv.trim();
-    if (!nv) {
-      if (!confirm('“' + c.name + '” 카테고리를 삭제할까요? 안의 스크랩은 미분류로 이동합니다.')) return;
-      setCats(cats.filter(function (x) { return x.id !== id; }));
-      var list = getScraps();
-      list.forEach(function (s) { if (s.catId === id) s.catId = ''; });
-      setScraps(list);
-      if (filter.cat === id) filter.cat = '';
-    } else {
-      c.name = nv;
-      setCats(cats);
-    }
-    renderCatSelect();
-    render();
-  }
-
-  function renderCatSelect() {
-    var sel = document.getElementById('scrapCat');
-    var keep = sel.value;
-    var cats = getCats();
-    sel.innerHTML = '<option value="' + NONE + '">미분류</option>' +
-      cats.map(function (c) {
-        return '<option value="' + U.esc(c.id) + '">' + U.esc(c.name) + '</option>';
-      }).join('');
-    if (keep && (keep === NONE || cats.some(function (c) { return c.id === keep; }))) sel.value = keep;
-  }
-
-  function renderCatBar() {
-    var bar = document.getElementById('scrapCats');
-    var scraps = getScraps();
-    var cats = getCats();
-    function count(pred) { return scraps.filter(pred).length; }
-
-    var chips = [];
-    chips.push(chip('', '전체 ' + scraps.length, filter.cat === ''));
-    chips.push(chip(NONE, '미분류 ' + count(function (s) { return !s.catId; }), filter.cat === NONE));
-    cats.forEach(function (c) {
-      chips.push(chip(c.id, c.name + ' ' + count(function (s) { return s.catId === c.id; }), filter.cat === c.id, true));
-    });
-    bar.innerHTML = '';
-    chips.forEach(function (el) { bar.appendChild(el); });
-
-    function chip(val, label, on, real) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'catchip' + (on ? ' is-on' : '');
-      b.textContent = label;
-      b.addEventListener('click', function () { filter.cat = val; render(); });
-      if (real) {
-        b.title = '두 번 클릭: 이름 변경 / 삭제';
-        b.addEventListener('dblclick', function () { renameOrDeleteCategory(val); });
-      }
-      return b;
-    }
   }
 
   /* ---------- 메타 자동 채움 ---------- */
@@ -169,6 +100,44 @@ App.scraps = (function () {
       .catch(function () { U.toast('정보를 가져오지 못했습니다 — 직접 입력하세요'); });
   }
 
+  /* ---------- AI 정리 (요약 · 태그 · 카테고리) ---------- */
+  function aiOrganize() {
+    var url = normUrl(document.getElementById('scrapUrl').value);
+    if (!url) { U.toast('먼저 URL을 입력하세요'); return; }
+    if (!App.ai.available()) { U.toast('설정에서 Gemini API 키를 입력하세요'); return; }
+    var btn = document.getElementById('scrapAI');
+    btn.disabled = true;
+    U.toast('AI가 정리하는 중…');
+
+    var textP = U.proxyAvailable()
+      ? fetch(U.proxyBase() + '/api/fetch-text?url=' + encodeURIComponent(url))
+          .then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; })
+      : Promise.resolve('');
+
+    textP.then(function (pageText) {
+      var opts = CT.allOptions().map(function (o) { return o.label; });
+      var prompt =
+        '아래 웹 문서를 한국어로 정리해줘. JSON 객체 하나만 출력:\n' +
+        '{"title": "제목 한 줄", "summary": "2~3문장 요약", "tags": ["태그", "3~5개", "각 1~2단어"], "category": "아래 목록 중 가장 알맞은 하나(정확히 그 문자열) 또는 빈 문자열"}\n' +
+        '카테고리 목록: ' + JSON.stringify(opts) + '\n\n' +
+        'URL: ' + url + '\n본문:\n' +
+        (pageText ? pageText.slice(0, 8000) : '(본문을 가져오지 못함 — URL만 참고)');
+      return App.ai.generateJSON(prompt);
+    }).then(function (j) {
+      var tEl = document.getElementById('scrapTitle');
+      var nEl = document.getElementById('scrapNote');
+      var gEl = document.getElementById('scrapTags');
+      var cEl = document.getElementById('scrapCat');
+      if (j.title && !tEl.value.trim()) tEl.value = j.title;
+      if (j.summary && !nEl.value.trim()) nEl.value = j.summary;
+      if (Array.isArray(j.tags) && j.tags.length && !gEl.value.trim()) gEl.value = j.tags.join(', ');
+      if (j.category) { var id = CT.idByLabel(j.category); if (id) cEl.value = id; }
+      U.toast('AI 정리 완료 — 확인 후 "스크랩 추가"');
+    }).catch(function (e) {
+      U.toast('AI 정리 실패: ' + (e && e.message || e));
+    }).finally(function () { btn.disabled = false; });
+  }
+
   function allTags() {
     var set = {};
     getScraps().forEach(function (s) { (s.tags || []).forEach(function (t) { set[t] = true; }); });
@@ -180,18 +149,18 @@ App.scraps = (function () {
     if (filter.read === 'read' && !s.read) return false;
     if (filter.read === 'unread' && s.read) return false;
     if (filter.tag && (s.tags || []).indexOf(filter.tag) === -1) return false;
-    if (filter.cat === NONE && s.catId) return false;
-    if (filter.cat && filter.cat !== NONE && s.catId !== filter.cat) return false;
+    if (!CT.matches(s.catId)) return false;
     if (filter.q) {
       var hay = (s.title + ' ' + (s.note || '') + ' ' + (s.source || '') + ' ' +
-        (s.tags || []).join(' ') + ' ' + catName(s.catId)).toLowerCase();
+        (s.tags || []).join(' ') + ' ' + CT.name(s.catId)).toLowerCase();
       if (hay.indexOf(filter.q) === -1) return false;
     }
     return true;
   }
 
   function render() {
-    renderCatBar();
+    if (!CT) return;
+    CT.render();
     renderTagFilter();
 
     var box = document.getElementById('scrapList');
@@ -205,24 +174,20 @@ App.scraps = (function () {
     }
 
     box.innerHTML = '';
-
-    if (filter.cat === '') {
-      // 전체 보기 → 카테고리별 그룹
-      var groups = [];
-      getCats().forEach(function (c) { groups.push({ id: c.id, name: c.name }); });
-      groups.push({ id: '', name: '미분류' });
-      groups.forEach(function (g) {
-        var items = list.filter(function (s) { return (s.catId || '') === g.id; });
-        if (!items.length) return;
-        var h = document.createElement('h3');
-        h.className = 'sc-group';
-        h.innerHTML = U.esc(g.name) + ' <span>(' + items.length + ')</span>';
-        box.appendChild(h);
-        items.forEach(function (s) { box.appendChild(card(s)); });
-      });
-    } else {
+    var groups = CT.groups();
+    if (!groups) {
       list.forEach(function (s) { box.appendChild(card(s)); });
+      return;
     }
+    groups.forEach(function (g) {
+      var items = list.filter(function (s) { return (s.catId || '') === g.catId; });
+      if (!items.length) return;
+      var h = document.createElement('h3');
+      h.className = 'sc-group';
+      h.innerHTML = U.esc(g.label) + ' <span>(' + items.length + ')</span>';
+      box.appendChild(h);
+      items.forEach(function (s) { box.appendChild(card(s)); });
+    });
   }
 
   function card(s) {
@@ -247,16 +212,9 @@ App.scraps = (function () {
       '<button type="button" class="sc-del">삭제</button></span>' +
       '</div>';
 
-    // 카테고리 이동 select
     var csel = el.querySelector('.sc-cat');
-    csel.innerHTML = '<option value="' + NONE + '">미분류</option>' +
-      getCats().map(function (c) {
-        return '<option value="' + U.esc(c.id) + '">' + U.esc(c.name) + '</option>';
-      }).join('');
-    csel.value = s.catId || NONE;
-    csel.addEventListener('change', function () {
-      update(s.id, { catId: csel.value === NONE ? '' : csel.value });
-    });
+    CT.fillSelect(csel, s.catId || '');
+    csel.addEventListener('change', function () { update(s.id, { catId: csel.value || '' }); });
 
     el.querySelector('.sc-read input').addEventListener('change', function (e) {
       update(s.id, { read: e.target.checked });

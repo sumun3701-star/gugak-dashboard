@@ -116,6 +116,45 @@ function fetchMeta(target, res, depth) {
   req.setTimeout(12000, () => req.destroy(new Error('timeout')));
 }
 
+// 페이지 본문을 태그 제거한 평문으로 (스크랩 AI 정리용)
+function fetchText(target, res, depth) {
+  depth = depth || 0;
+  let mod;
+  try { mod = new URL(target).protocol === 'https:' ? https : http; }
+  catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    return res.end('bad url');
+  }
+  const req = mod.get(target, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; gugak-dashboard/1.0)', 'Accept': 'text/html,*/*' } }, r => {
+    if ([301, 302, 303, 307, 308].includes(r.statusCode) && r.headers.location && depth < 4) {
+      r.destroy();
+      return fetchText(new URL(r.headers.location, target).href, res, depth + 1);
+    }
+    let data = '';
+    r.setEncoding('utf8');
+    r.on('data', c => { data += c; if (data.length > 800000) r.destroy(); });
+    const done = () => {
+      let t = data
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+        .replace(/<!--[\s\S]*?-->/g, ' ')
+        .replace(/<\/(p|div|li|h[1-6]|br|tr|section|article)>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ');
+      t = decodeEntities(t).replace(/[ \t\f\v]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim().slice(0, 14000);
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      res.end(t);
+    };
+    r.on('end', done);
+    r.on('close', () => { if (data) done(); });
+  });
+  req.on('error', e => {
+    res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    res.end('fetch failed: ' + String(e));
+  });
+  req.setTimeout(12000, () => req.destroy(new Error('timeout')));
+}
+
 function serveStatic(pathname, res) {
   let rel = decodeURIComponent(pathname);
   if (rel === '/' || rel === '') rel = '/index.html';
@@ -161,6 +200,15 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify({ error: 'bad url' }));
     }
     return fetchMeta(target, res);
+  }
+
+  if (u.pathname === '/api/fetch-text') {
+    const target = q.get('url') || '';
+    if (!/^https?:\/\//i.test(target)) {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      return res.end('bad url');
+    }
+    return fetchText(target, res);
   }
 
   return serveStatic(u.pathname, res);

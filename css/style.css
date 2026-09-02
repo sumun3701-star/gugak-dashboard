@@ -182,6 +182,7 @@ a { color: var(--accent); }
 .cal-status { font-size: 12px; color: var(--text-soft); min-height: 18px; margin-bottom: 6px; }
 .cal-status.error { color: var(--danger); }
 
+
 /* 상단 고정: 관심 공연 + 개인 일정 */
 .cal-pinned { margin-bottom: 12px; }
 .cal-pinned[hidden] { display: none; }
@@ -336,9 +337,9 @@ a { color: var(--accent); }
 .head-sub { font-weight: 400; font-size: 12px; color: var(--text-soft); }
 
 /* 작업물 게시판: 카테고리 트리 + 본문 */
-.archive-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 760px) { .archive-layout { grid-template-columns: 1fr; } }
-.archive-main { min-width: 0; }
+.cat-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 760px) { .cat-layout { grid-template-columns: 1fr; } }
+.cat-main { min-width: 0; }
 
 .cat-tree {
   border: 1px solid var(--border); border-radius: 10px;
@@ -463,20 +464,13 @@ a { color: var(--accent); }
 /* ---------- Scraps ---------- */
 .scrap-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .scrap-form input, .scrap-form textarea { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
-.scrap-url-row { display: flex; gap: 8px; }
-.scrap-url-row input { flex: 1; }
+.scrap-url-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.scrap-url-row input { flex: 1 1 200px; min-width: 0; }
+.scrap-url-row button { flex: 0 0 auto; }
+#scrapAI:disabled { opacity: 0.5; cursor: default; }
 .scrap-form-row { display: flex; gap: 8px; }
 .scrap-form-row select { flex: 0 0 40%; }
 .scrap-form-row input { flex: 1; }
-
-.scrap-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.catchip {
-  font-size: 12px; padding: 4px 11px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
-  font-weight: 600;
-}
-.catchip.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.scrap-cat-hint { margin: 0 0 12px; }
 
 .sc-group {
   font-size: 13px; color: var(--text-soft);
@@ -604,6 +598,10 @@ a { color: var(--accent); }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field > span { font-size: 12px; font-weight: 600; color: var(--text-soft); }
 .field input, .field select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
+.secret-row { display: flex; gap: 6px; }
+.secret-row input { flex: 1; min-width: 0; }
+.secret-toggle { flex: 0 0 auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font-size: 13px; padding: 0 10px; cursor: pointer; }
+.secret-toggle:hover { border-color: var(--text-soft); }
 .field small { font-size: 11px; color: var(--text-soft); }
 .field-row { display: flex; gap: 12px; }
 .field-row .field { flex: 1; }
